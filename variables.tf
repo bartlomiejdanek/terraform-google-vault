@@ -60,6 +60,16 @@ EOF
 
 }
 
+variable "zone" {
+  type    = string
+  default = "us-east4-a"
+
+  description = <<EOF
+Zone in which to create resources.
+EOF
+
+}
+
 #
 #
 # GCS
@@ -103,8 +113,7 @@ variable "storage_bucket_enable_versioning" {
   default = false
 
   description = <<EOF
-Set to true to enable object versioning in the GCS bucket.. You may want to
-define lifecycle rules if you want a finite number of old versions.
+Set to true to enable object versioning in the GCS bucket.
 EOF
 
 }
@@ -163,6 +172,10 @@ variable "service_account_name" {
 Name of the Vault service account.
 EOF
 
+}
+
+variable "server_name" {
+  type = string
 }
 
 variable "service_account_project_iam_roles" {
@@ -246,63 +259,12 @@ EOF
 
 #
 #
-# Networking
-# --------------------
-
-variable "network" {
-  type = string
-  default = ""
-  description = "The self link of the VPC network for Vault. By default, one will be created for you."
-}
-
-variable "subnet" {
-  type = string
-  default = ""
-  description = "The self link of the VPC subnetwork for Vault. By default, one will be created for you."
-}
-
-variable "network_subnet_cidr_range" {
-  type    = string
-  default = "10.127.0.0/20"
-
-  description = <<EOF
-CIDR block range for the subnet.
-EOF
-
-}
-
-#
-#
-# SSH
-# --------------------
-
-variable "allow_ssh" {
-  type        = bool
-  default     = true
-  description = <<EOF
-Allow external access to ssh port 22 on the Vault VMs. It is a best practice to set this to false,
-however it is true by default for the sake of backwards compatibility.
-EOF
-}
-
-variable "ssh_allowed_cidrs" {
-  type    = list(string)
-  default = ["0.0.0.0/0"]
-
-  description = <<EOF
-List of CIDR blocks to allow access to SSH into nodes.
-EOF
-
-}
-
-#
-#
 # TLS
 # --------------------
 
 variable "manage_tls" {
-  type    = bool
-  default = true
+  type    = string
+  default = "true"
 
   description = <<EOF
 Set to "false" if you'd like to manage and upload your own TLS files, if you do not want this module
@@ -357,61 +319,9 @@ variable "tls_ips" {
   default     = ["127.0.0.1"]
 }
 
-variable "tls_save_ca_to_disk" {
-  type    = bool
-  default = true
-
-  description = <<EOF
-Save the CA public certificate on the local filesystem. The CA is always stored
-in GCS, but this option also saves it to the filesystem.
-EOF
-}
-
 variable "tls_ou" {
   description = "The TLS Organizational Unit for the TLS certificate"
   default     = "IT Security Operations"
-}
-
-
-#
-#
-# Vault
-# --------------------
-
-variable "vault_allowed_cidrs" {
-  type    = list(string)
-  default = ["0.0.0.0/0"]
-
-  description = <<EOF
-List of CIDR blocks to allow access to the Vault nodes. Since the load balancer
-is a pass-through load balancer, this must also include all IPs from which you
-will access Vault. The default is unrestricted (any IP address can access
-Vault). It is recommended that you reduce this to a smaller list.
-
-To disable, set to the empty list []. Even if disabled, internal rules will
-still allow the health checker to probe the nodes for health.
-EOF
-
-}
-
-variable "vault_args" {
-  type    = string
-  default = ""
-
-  description = <<EOF
-Additional command line arguments passed to Vault server/
-EOF
-
-}
-
-variable "vault_instance_labels" {
-  type    = map(string)
-  default = {}
-
-  description = <<EOF
-Labels to apply to the Vault instances.
-EOF
-
 }
 
 variable "vault_ca_cert_filename" {
@@ -420,127 +330,6 @@ variable "vault_ca_cert_filename" {
 
   description = <<EOF
 GCS object path within the vault_tls_bucket. This is the root CA certificate.
-EOF
-
-}
-
-variable "vault_instance_metadata" {
-  type    = map(string)
-  default = {}
-
-  description = <<EOF
-Additional metadata to add to the Vault instances.
-EOF
-
-}
-
-variable "vault_instance_base_image" {
-  type    = string
-  default = "debian-cloud/debian-9"
-
-  description = <<EOF
-Base operating system image in which to install Vault. This must be a
-Debian-based system at the moment due to how the metadata startup script
-runs.
-EOF
-}
-
-variable "vault_instance_tags" {
-  type    = list(string)
-  default = []
-
-  description = <<EOF
-Additional tags to apply to the instances. Note "allow-ssh" and "allow-vault"
-will be present on all instances.
-EOF
-
-}
-
-variable "vault_log_level" {
-  type    = string
-  default = "warn"
-
-  description = <<EOF
-Log level to run Vault in. See the Vault documentation for valid values.
-EOF
-
-}
-
-variable "vault_min_num_servers" {
-  type    = string
-  default = "1"
-
-  description = <<EOF
-Minimum number of Vault server nodes in the autoscaling group. The group will
-not have less than this number of nodes.
-EOF
-
-}
-
-variable "vault_machine_type" {
-  type    = string
-  default = "n1-standard-1"
-
-  description = <<EOF
-Machine type to use for Vault instances.
-EOF
-
-}
-
-variable "vault_max_num_servers" {
-  type    = string
-  default = "7"
-
-  description = <<EOF
-Maximum number of Vault server nodes to run at one time. The group will not
-autoscale beyond this number.
-EOF
-
-}
-
-variable "vault_port" {
-  type    = string
-  default = "8200"
-
-  description = <<EOF
-Numeric port on which to run and expose Vault. This should be a high-numbered
-port, since Vault does not run as a root user and therefore cannot bind to
-privledged ports like 80 or 443. The default is 8200, the standard Vault port.
-EOF
-
-}
-
-variable "vault_proxy_port" {
-  type    = string
-  default = "58200"
-
-  description = <<EOF
-Port to expose Vault's health status endpoint on over HTTP on /. This is
-required for the health checks to verify Vault's status. Only the health status
-endpoint is exposed, and it is only accessible from Google's load balancer
-addresses.
-EOF
-
-}
-
-variable "vault_tls_disable_client_certs" {
-  type    = string
-  default = false
-
-  description = <<EOF
-Use client certificates when provided. You may want to disable this if users will
-not be authenticating to Vault with client certificates.
-EOF
-
-}
-
-variable "vault_tls_require_and_verify_client_cert" {
-  type    = string
-  default = false
-
-  description = <<EOF
-Always use client certificates. You may want to disable this if users will
-not be authenticating to Vault with client certificates.
 EOF
 
 }
@@ -575,6 +364,98 @@ EOF
 
 }
 
+#
+#
+# Vault
+# --------------------
+
+variable "vault_args" {
+  type    = string
+  default = ""
+
+  description = <<EOF
+Additional command line arguments passed to Vault server/
+EOF
+
+}
+
+variable "vault_instance_metadata" {
+  type    = map(string)
+  default = {}
+
+  description = <<EOF
+Additional metadata to add to the Vault instances.
+EOF
+
+}
+
+variable "vault_instance_base_image" {
+  type    = string
+  default = "debian-cloud/debian-10"
+
+  description = <<EOF
+Base operating system image in which to install Vault. This must be a
+Debian-based system at the moment due to how the metadata startup script
+runs.
+EOF
+}
+
+variable "vault_log_level" {
+  type    = string
+  default = "warn"
+
+  description = <<EOF
+Log level to run Vault in. See the Vault documentation for valid values.
+EOF
+
+}
+
+variable "vault_machine_type" {
+  type    = string
+  default = "n1-standard-1"
+
+  description = <<EOF
+Machine type to use for Vault instances.
+EOF
+
+}
+
+variable "vault_port" {
+  type    = string
+  default = "8200"
+
+  description = <<EOF
+Numeric port on which to run and expose Vault. This should be a high-numbered
+port, since Vault does not run as a root user and therefore cannot bind to
+privledged ports like 80 or 443. The default is 8200, the standard Vault port.
+EOF
+
+}
+
+variable "vault_proxy_port" {
+  type    = string
+  default = "58200"
+
+  description = <<EOF
+Port to expose Vault's health status endpoint on over HTTP on /. This is
+required for the health checks to verify Vault's status. Only the health status
+endpoint is exposed, and it is only accessible from Google's load balancer
+addresses.
+EOF
+
+}
+
+variable "vault_tls_disable_client_certs" {
+  type    = string
+  default = false
+
+  description = <<EOF
+Use and expect client certificates. You may want to disable this if users will
+not be authenticating to Vault with client certificates.
+EOF
+
+}
+
 variable "vault_ui_enabled" {
   type    = string
   default = true
@@ -594,4 +475,8 @@ Version of vault to install. This version must be 1.0+ and must be published on
 the HashiCorp releases service.
 EOF
 
+}
+
+variable "tls_save_ca_to_disk" {
+  type = bool
 }

@@ -5,6 +5,7 @@ set -o pipefail
 # Only run the script once
 if [ -f ~/.startup-script-complete ]; then
   echo "Startup script already ran, exiting"
+  /usr/local/bin/caddy start --config=/etc/caddy/Caddyfile --adapter caddyfile
   exit 0
 fi
 
@@ -86,7 +87,6 @@ Documentation=https://www.vaultproject.io/docs/
 Requires=network-online.target
 After=network-online.target
 ConditionFileNotEmpty=/etc/vault.d/config.hcl
-
 [Service]
 User=vault
 Group=vault
@@ -109,7 +109,6 @@ KillSignal=SIGINT
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=30
-
 [Install]
 WantedBy=multi-user.target
 EOF
@@ -149,7 +148,6 @@ systemctl daemon-reload
 # Setup vault env
 cat <<"EOF" > /etc/profile.d/vault.sh
 export VAULT_ADDR="http://127.0.0.1:${vault_port}"
-
 # Ignore history from any Vault commands
 export HISTIGNORE="&:vault*"
 EOF
@@ -173,10 +171,8 @@ cat <<"EOF" > /etc/rsyslog.d/vault.conf
 #
 # Extract Vault logs from syslog
 #
-
 # Only include the message (Vault has its own timestamps and data)
 template(name="OnlyMsg" type="string" string="%msg:2:$:drop-last-lf%\n")
-
 if ( $programname == "vault" ) then {
   action(type="omfile" file="/var/log/vault/server.log" template="OnlyMsg")
   stop
@@ -190,17 +186,14 @@ cat <<"EOF" > /etc/google-fluentd/config.d/vaultproject.io.conf
 <source>
   @type tail
   format json
-
   time_type "string"
   time_format "%Y-%m-%dT%H:%M:%S.%N%z"
   keep_time_key true
-
   path /var/log/vault/audit.log
   pos_file /var/lib/google-fluentd/pos/vault.audit.pos
   read_from_head true
   tag vaultproject.io/audit
 </source>
-
 <filter vaultproject.io/audit>
   @type record_transformer
   enable_ruby true
@@ -209,21 +202,17 @@ cat <<"EOF" > /etc/google-fluentd/config.d/vaultproject.io.conf
     host "#{Socket.gethostname}"
   </record>
 </filter>
-
 <source>
   @type tail
   format /^(?<time>[^ ]+) \[(?<severity>[^ ]+)\][ ]+(?<source>[^:]+): (?<message>.*)/
-
   time_type "string"
   time_format "%Y-%m-%dT%H:%M:%S.%N%z"
   keep_time_key true
-
   path /var/log/vault/server.log
   pos_file /var/lib/google-fluentd/pos/vault.server.pos
   read_from_head true
   tag vaultproject.io/server
 </source>
-
 <filter vaultproject.io/server>
   @type record_transformer
   enable_ruby true
@@ -258,6 +247,24 @@ EOF
 curl -sSfLo /opt/stackdriver/collectd/etc/collectd.d/statsd.conf https://raw.githubusercontent.com/Stackdriver/stackdriver-agent-service-configs/master/etc/collectd.d/statsd.conf
 systemctl enable stackdriver-agent
 systemctl restart stackdriver-agent
+
+curl -sSfLo /usr/local/bin/caddy https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.20/caddy2_beta20_linux_amd64
+chmod a+x /usr/local/bin/caddy
+
+setcap 'cap_net_bind_service=+ep' /usr/local/bin/caddy
+
+sudo mkdir /etc/caddy
+sudo chown -R root:root /etc/caddy
+sudo mkdir /etc/ssl/caddy
+sudo chown -R root:www-data /etc/ssl/caddy
+sudo chmod 0770 /etc/ssl/caddy
+
+# Configure logrotate for Vault audit logs
+cat <<"EOF" > /etc/caddy/Caddyfile
+${server_name}
+
+reverse_proxy localhost:8200
+EOF
 
 # Signal this script has run
 touch ~/.startup-script-complete

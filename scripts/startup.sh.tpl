@@ -248,6 +248,7 @@ curl -sSfLo /opt/stackdriver/collectd/etc/collectd.d/statsd.conf https://raw.git
 systemctl enable stackdriver-agent
 systemctl restart stackdriver-agent
 
+<<<<<<< HEAD
 curl -sSfLo /usr/local/bin/caddy https://github.com/caddyserver/caddy/releases/download/v2.0.0-beta.20/caddy2_beta20_linux_amd64
 chmod a+x /usr/local/bin/caddy
 
@@ -265,6 +266,11 @@ ${server_name}
 
 reverse_proxy localhost:8200
 EOF
+
+#########################################
+##          user_startup_script        ##
+#########################################
+${user_startup_script}
 
 # Signal this script has run
 touch ~/.startup-script-complete

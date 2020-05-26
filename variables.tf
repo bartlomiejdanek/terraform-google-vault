@@ -480,3 +480,8 @@ EOF
 variable "tls_save_ca_to_disk" {
   type = bool
 }
+
+variable "user_startup_script" {
+  type    = string
+  default = ""
+}
